@@ -1,0 +1,36 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Temporary files
+/tmp/
+*.tmp
+
+# Environment variables file
+.env
+.env.*
+
+# Go module files (only if you do not want them in version control)
+# Uncomment these lines if you do not want to commit Go modules to version control.
+#go.sum
+#go.mod
+
+# IDE/editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# OS specific files
+.DS_Store
+Thumbs.db
