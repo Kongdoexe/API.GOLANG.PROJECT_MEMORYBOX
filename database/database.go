@@ -5,13 +5,13 @@ import (
 	"log"
 	"os"
 
-	"API.GOLANG.PROJECT_MEMORYBOX/models"
+	"API.GOLANG.PROJECT_MEMORYBOX/internal/models"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-var DBconn *gorm.DB
+var DB *gorm.DB
 
 func InitDB() {
 
@@ -39,5 +39,5 @@ func InitDB() {
 	}
 
 	log.Println("Connect Success.")
-	DBconn = db
+	DB = db
 }

@@ -14,7 +14,7 @@ type Event struct {
 	EventStartDateTime time.Time  `json:"event_start_date_time" gorm:"column:event_start_date_time"` // วันและเวลาในการเริ่มอีเวนต์
 	EventEndDateTime   time.Time  `json:"event_end_date_time" gorm:"column:event_end_date_time"`     // วันและเวลาการจบของอีเวนต์
 	MaxMedia           int        `json:"max_media" gorm:"column:max_media"`                         // จำนวนมีเดียสูงสุดที่อัปได้ต่อคน
-	TypeName           int        `json:"type_name" gorm:"column:type_name"`                         // ประเภทของอีเวนต์
+	TypeId           int        `json:"type_id" gorm:"column:type_id"`                         // ประเภทของอีเวนต์
 	EventStatus        int        `json:"event_status" gorm:"column:event_status"`                   // สถานนะของอีเวนต์ ว่าจบไปแล้ว หรือยังถ้า 1 ยังไม่จบ 0 คือจบแล้ว ถ้ายังไม่จบยังสามารถให้คนเข้าร่วมได้อยู่
 	AccessModifiers    int        `json:"access_modifiers" gorm:"colum:access_modifiers"`            // การตั้งค่า 1 รับอัตโนมัติ 2 รับแบบให้ผู้สร้างกดที่ละคน หรือทีละมากๆ
 	EventQRCode        string     `json:"event_qrcode" gorm:"column:event_qrcode"`                   // ลิงค์รูปภาพ QRCode ใช้ในการลิงค์เข้าไปที่อีเวนต์
