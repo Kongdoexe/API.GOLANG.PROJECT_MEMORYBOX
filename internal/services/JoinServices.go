@@ -31,7 +31,7 @@ func JoinCreate(req *request.JoinRequest) (*models.Join, error) {
 
 	join.UserID = user.ID
 	join.EventID = event.ID
-	join.AccessModifiers = 1
+	join.Status = 1
 
 	if err = repositories.Joincreate(&join); err != nil {
 		return nil, errors.New("ไม่สามารถสร้างผู้ใช้ได้")

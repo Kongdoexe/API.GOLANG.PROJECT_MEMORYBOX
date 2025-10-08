@@ -7,9 +7,37 @@ type GetallEvent struct {
 	EventTitle      string   `json:"event_title"`
 	EventDate       string   `json:"event_date"`
 	EventLocation   string   `json:"event_location"`
+	EventLatitude   float64  `json:"event_latitude"`
+	EventLongitude  float64  `json:"event_longitude"`
 	EventImage      string   `json:"event_image"`
+	EventCategory   int      `json:"event_category"`
 	AttendeeCount   int      `json:"attendee_count"`
 	AttendeeAvatars []string `json:"attendee_avatars"`
+	IsFavorite      bool     `json:"isFavorite"`
+	IsJoin          bool     `json:"isJoin"`
+}
+
+type WSMessage struct {
+	Event string        `json:"event"`
+	UID   string        `json:"uid"`
+	Data  WSChatMessage `json:"data"`
+}
+
+type WSChatMessage struct {
+	Username  string    `json:"username"`
+	Message   string    `json:"message"`
+	RoomID    string    `json:"roomid"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+type EventDetail struct {
+	EventId            int64     `json:"event_id"`
+	EventTitle         string    `json:"event_title"`
+	EventStartDateTime time.Time `json:"event_start_date_time"`
+	EventEndDateTime   time.Time `json:"event_end_date_time"`
+	EventLocationName  string    `json:"event_location_name"`
+	EventImage         string    `json:"event_image"`
+	EventAttendeeCount int       `json:"event_attend_count"`
 }
 
 type DetailEvent struct {
@@ -40,4 +68,22 @@ type EventcreateResponse struct {
 	EventStatus        int64     `json:"event_status"`
 	AccessModifiers    int64     `json:"access_modifiers"`
 	EventQrcode        string    `json:"event_qrcode"`
+}
+
+type EventGetFavorite struct {
+	EventId       int    `json:"event_id"`
+	EventTitle    string `json:"event_title"`
+	EventDeatil   string `json:"event_detail"`
+	EventStart    string `json:"event_start_date"`
+	EventEnd      string `json:"event_end_date"`
+	EventLocation string `json:"event_location"`
+	EventImage    string `json:"event_image"`
+}
+
+type EventGetMainProfile struct {
+	EventId       int    `json:"id"`
+	EventImage    string `json:"image"`
+	EventTitle    string `json:"title"`
+	EventDate     string `json:"datetime"`
+	EventLocation string `json:"loction"`
 }

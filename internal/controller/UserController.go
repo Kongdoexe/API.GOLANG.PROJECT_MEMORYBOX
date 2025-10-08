@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos/request"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/models"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/services"
@@ -24,6 +26,37 @@ func GetUserByID(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "ดึงข้อมูลสำเร็จ",
 		"data":    response,
+		"success": true,
+	})
+}
+
+func GetUserByEmailAndGoogleID(c *fiber.Ctx) error {
+	var email request.GoogleAuthRequest
+
+	if err := c.BodyParser(&email); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	fmt.Print("Email: ", email.Email, " GoogleID: ", email.GoogleID, "\n")
+
+	if email.Email == "" || email.GoogleID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	_, err := services.GetUserByEmailAGoogleID(email.Email, email.GoogleID)
+
+	if err != nil {
+		return c.JSON(fiber.Map{
+			"success": false,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
 	})
 }
 
@@ -50,7 +83,7 @@ func Login(c *fiber.Ctx) error {
 	})
 }
 
-func Regsiter(c *fiber.Ctx) error {
+func Register(c *fiber.Ctx) error {
 	var req models.User
 
 	if err := c.BodyParser(&req); err != nil {
@@ -59,7 +92,7 @@ func Regsiter(c *fiber.Ctx) error {
 		})
 	}
 
-	response, err, success := services.Regsiter(&req)
+	response, err, success := services.Register(&req)
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{
 			"message": err.Error(),
@@ -70,5 +103,68 @@ func Regsiter(c *fiber.Ctx) error {
 		"message": "สมัครสมาชิกสำเร็จ",
 		"data":    response,
 		"success": success,
+	})
+}
+
+func SendOTPEmail(c *fiber.Ctx) error {
+	var req request.SendOTP
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	err := services.SendOTPEmail(req)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "ส่งเสร็จสิ้น",
+	})
+}
+
+func CheckOTP(c *fiber.Ctx) error {
+	var req request.OTPVerify
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	err := services.CheckOTP(req)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": err.Error(),
+			"success": false,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "สำเร็จ",
+		"success": true,
+	})
+}
+
+func ChangePass(c *fiber.Ctx) error {
+	var req request.ChangePass
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	err := services.ChangePass(req)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": err.Error(),
+			"success": false,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "เปลี่ยนรหัสสำเร็จ",
 	})
 }

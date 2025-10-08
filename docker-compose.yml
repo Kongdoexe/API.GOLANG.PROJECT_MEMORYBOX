@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  golang-app:
+    build: .
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ./${UPLOAD_DIR}:/app/${UPLOAD_DIR}
+    working_dir: /app
+    env_file:
+      - .env
+    command: ["go", "run", "main.go"]

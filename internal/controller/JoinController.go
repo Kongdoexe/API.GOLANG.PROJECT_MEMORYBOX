@@ -11,7 +11,7 @@ func JoinEvent(c *fiber.Ctx) error {
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "ไม่สามารถดำเนินการได้",
+			"message": "Unable to process",
 		})
 	}
 

@@ -39,6 +39,16 @@ func UserFindByname(username string) *models.User {
 	return &user
 }
 
+func UserFindByEmailAGoogleID(email, googleId string) (*models.User, error) {
+	var user models.User
+
+	if err := database.DB.Where("email = ? AND google_id = ?", email, googleId).First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 func UserFindByEmail(email string) (*models.User, error) {
 	var user models.User
 
@@ -51,6 +61,10 @@ func UserFindByEmail(email string) (*models.User, error) {
 
 func UserFindPhoneNumber(phone string) (*models.User, error) {
 	var user models.User
+
+	if phone == "" {
+		return &user, nil
+	}
 
 	if err := database.DB.Where("phone = ?", phone).First(&user).Error; err != nil {
 		return nil, err
@@ -77,4 +91,26 @@ func UserFindByGoogleID(googleId string) (*models.User, error) {
 	}
 
 	return &user, nil
+}
+
+func GetOTPByUserId(userId uint) *models.ResetPassToken {
+	var resetpass models.ResetPassToken
+
+	if err := database.DB.Where("user_id = ?", userId).First(&resetpass).Error; err != nil {
+		return nil
+	}
+
+	return &resetpass
+}
+
+func CreateOTPByEmail(resetpass *models.ResetPassToken) error {
+	return database.DB.Create(resetpass).Error
+}
+
+func UpdateOTPByEmail(resetpass *models.ResetPassToken) error {
+	return database.DB.Save(resetpass).Error
+}
+
+func ChangePass(user *models.User) error {
+	return database.DB.Save(user).Error
 }
