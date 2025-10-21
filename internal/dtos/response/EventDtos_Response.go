@@ -1,6 +1,10 @@
 package response
 
-import "time"
+import (
+	"time"
+
+	"API.GOLANG.PROJECT_MEMORYBOX/internal/models"
+)
 
 type GetallEvent struct {
 	EventId         int      `json:"event_id"`
@@ -17,16 +21,22 @@ type GetallEvent struct {
 	IsJoin          bool     `json:"isJoin"`
 }
 
+type WsMessageRequest struct {
+	EventId string `json:"event_id"`
+	UserId  string `json:"user_id"`
+	Message string `json:"message"`
+}
+
 type WSMessage struct {
-	Event string        `json:"event"`
-	UID   string        `json:"uid"`
-	Data  WSChatMessage `json:"data"`
+	ActionEvent string        `json:"action_event"`
+	Data        WSChatMessage `json:"data"`
 }
 
 type WSChatMessage struct {
-	Username  string    `json:"username"`
+	UserID    string `json:"userId"`
+	EventId   string `json:"eventId"` // RoomId
+	DataUser  *models.User
 	Message   string    `json:"message"`
-	RoomID    string    `json:"roomid"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
@@ -86,4 +96,24 @@ type EventGetMainProfile struct {
 	EventTitle    string `json:"title"`
 	EventDate     string `json:"datetime"`
 	EventLocation string `json:"loction"`
+}
+
+type EventGetFavorites struct {
+	ID             int       `json:"id"`
+	EventName      string    `json:"title"`
+	EventImage     string    `json:"image"`
+	TypeID         int       `json:"type_id"`
+	MaxMedia       int       `json:"max_media"`
+	EventStartTime time.Time `json:"dateT"`
+	EventDate      string    `json:"date"`
+	FavoriteDate   string    `json:"favorite_date"`
+}
+
+type EventGetListJoin struct {
+	ID        uint   `gorm:"primaryKey;column:user_id" json:"id"`
+	UserImage string `json:"user_image" gorm:"column:user_image"`
+	Name      string `json:"name" gorm:"size:255;column:name"`
+	Email     string `json:"email" gorm:"unique;size:255;not null;column:email"`
+	Phone     string `json:"phone" gorm:"column:phone"`
+	Status    int    `json:"status"`
 }

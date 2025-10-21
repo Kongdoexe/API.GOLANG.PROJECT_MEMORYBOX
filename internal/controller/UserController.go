@@ -156,7 +156,7 @@ func ChangePass(c *fiber.Ctx) error {
 		})
 	}
 
-	err := services.ChangePass(req)
+	err := services.ChangePass(req, false)
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{
 			"message": err.Error(),
@@ -166,5 +166,93 @@ func ChangePass(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "เปลี่ยนรหัสสำเร็จ",
+		"success": true,
+	})
+}
+
+func ChangePassOTP(c *fiber.Ctx) error {
+	var req request.ChangePass
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	err := services.ChangePass(req, true)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": err.Error(),
+			"success": false,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "เปลี่ยนรหัสสำเร็จ",
+		"success": true,
+	})
+}
+
+func ChangeProfile(c *fiber.Ctx) error {
+	var req request.ChangeProfile
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	user, err := services.ChangeProfile(req)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": err.Error(),
+			"success": false,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "เปลี่ยนโปรไฟล์สำเร็จ",
+		"data":    user,
+	})
+}
+
+func UserUploadImageCover(c *fiber.Ctx) error {
+	uid := c.Params("uid")
+
+	if uid == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "ขาด UserID",
+		})
+	}
+
+	file, err := c.FormFile("image")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "ไม่พบไฟล์ที่อัปโหลด",
+		})
+	}
+
+	imageurl, err := services.UserUploadImageCover(file, uid)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":   "อัปโหลดสำเร็จ",
+		"image_url": imageurl,
+	})
+}
+
+func GetAllUserInSystem(c *fiber.Ctx) error {
+	response, err := services.GetAllUserInSystem()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "ดึงข้อมูลสำเร็จ",
+		"data":    response,
 	})
 }

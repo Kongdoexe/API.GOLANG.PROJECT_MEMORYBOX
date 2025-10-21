@@ -1,18 +1,76 @@
 package repositories
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"API.GOLANG.PROJECT_MEMORYBOX/database"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos/request"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos/response"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/models"
+	"gorm.io/gorm"
 
 	"strconv"
 )
 
 func Eventcreate(event *models.Event) error {
 	return database.DB.Create(&event).Error
+}
+
+func EventChangeNotiDayOne(event *models.Event) error {
+	return database.DB.Save(&event).Error
+}
+
+func EventDelete(ctx context.Context, eventID int) error {
+	return database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1) ลบ favorite
+		if err := tx.Where("event_id = ?", eventID).
+			Delete(&models.Favorite{}).Error; err != nil {
+			return fmt.Errorf("delete favorites failed: %w", err)
+		}
+
+		// 2) ลบ media (ถ้ามีตารางลูกของ media เช่น media_like, media_comment ให้ลบก่อน media)
+		if err := tx.Where("event_id = ?", eventID).
+			Delete(&models.Media{}).Error; err != nil {
+			return fmt.Errorf("delete media failed: %w", err)
+		}
+
+		// 3) ลบ chat messages (ถ้ามี message_reads ฯลฯ ให้ลบก่อน)
+		if err := tx.Where("event_id = ?", eventID).
+			Delete(&models.ChatMessage{}).Error; err != nil {
+			return fmt.Errorf("delete chat messages failed: %w", err)
+		}
+
+		// 4) ลบการเข้าร่วม
+		if err := tx.Where("event_id = ?", eventID).
+			Delete(&models.Join{}).Error; err != nil {
+			return fmt.Errorf("delete joins failed: %w", err)
+		}
+
+		// 5) ลบการแจ้งเตือน
+		if err := tx.Where("event_id = ?", eventID).
+			Delete(&models.Notification{}).Error; err != nil {
+			return fmt.Errorf("delete favorites failed: %w", err)
+		}
+
+		// **สำคัญ**: ตรวจว่ามีตารางอื่นที่อ้าง event_id อีกไหม เช่น Notification, RoomKey, Invite ฯลฯ
+		if err := tx.Where("event_id = ?", eventID).
+			Delete(&models.Notification{}).Error; err != nil {
+			// ถ้าไม่มีคอนสตรัคนี้ในระบบคุณ ลบทิ้งบรรทัดนี้ได้
+			return fmt.Errorf("delete notifications failed: %w", err)
+		}
+
+		// 5) ลบ event (hard delete)
+		res := tx.Unscoped().Where("id = ?", eventID).Delete(&models.Event{})
+		if res.Error != nil {
+			return fmt.Errorf("delete event failed: %w", res.Error)
+		}
+		if res.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
 }
 
 func EventGetAll() (*[]models.Event, error) {
@@ -60,10 +118,11 @@ func GetEventByUID(uid string) ([]models.Event, error) {
 	return events, nil
 }
 
-func GetEventsWithAttendees(uid string) ([]response.GetallEvent, error) {
+func GetEventsWithAttendees(uid string, isCalendar bool, isJoin bool) ([]response.GetallEvent, error) {
 	events := make([]response.GetallEvent, 0)
 
-	query := `
+	// --- SELECT/JOIN พื้นฐาน (มี my_join ให้เช็คว่าเราเข้าร่วมหรือยัง) ---
+	base := `
 		SELECT
 			e.id,
 			e.event_name,
@@ -96,12 +155,44 @@ func GetEventsWithAttendees(uid string) ([]response.GetallEvent, error) {
 			WHERE user_id = ?
 		) my_join
 			ON my_join.event_id = e.id
-		-- กรองเฉพาะอีเวนต์ที่ยังไม่จบ (หรือไม่มี end_time ให้ถือว่าใช้ start_time แทน)
+	`
+
+	// --- เงื่อนไขตามโหมดต่าง ๆ ---
+	// โหมด Calendar: ยังไม่หมดเวลา OR ยังไม่เริ่ม (รองรับ end_time เป็น NULL) OR เราเคยเข้าร่วม → แสดงได้
+	whereCalendar := `
+		WHERE
+			( e.event_end_time IS NOT NULL AND e.event_end_time >= NOW() )
+			OR ( e.event_end_time IS NULL AND e.event_start_time >= NOW() )
+			OR ( my_join.event_id IS NOT NULL )
+	`
+
+	// โหมดทั่วไป: ใช้ end_time ถ้ามี ไม่งั้นใช้ start_time
+	whereNonCalendar := `
 		WHERE COALESCE(e.event_end_time, e.event_start_time) >= NOW()
+	`
+
+	// โหมดเฉพาะอีเวนต์ที่เราเข้าร่วมเท่านั้น
+	whereOnlyJoined := `
+		WHERE my_join.event_id IS NOT NULL
+	`
+
+	order := `
 		ORDER BY
-			CASE WHEN my_join.event_id IS NULL THEN 0 ELSE 1 END,
+			CASE WHEN my_join.event_id IS NULL THEN 0 ELSE 1 END DESC,
 			e.id ASC;
 	`
+
+	// เลือก WHERE ตามพารามิเตอร์
+	var query string
+	switch {
+	case isJoin:
+		// ถ้าขอ “เอาเฉพาะที่เราเข้าร่วม” ให้ใช้ whereOnlyJoined ตรง ๆ
+		query = base + whereOnlyJoined + order
+	case isCalendar:
+		query = base + whereCalendar + order
+	default:
+		query = base + whereNonCalendar + order
+	}
 
 	rows, err := database.DB.Raw(query, uid, uid).Rows()
 	if err != nil {
@@ -110,31 +201,31 @@ func GetEventsWithAttendees(uid string) ([]response.GetallEvent, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var event response.GetallEvent
+		var ev response.GetallEvent
 		if err := rows.Scan(
-			&event.EventId,
-			&event.EventTitle,
-			&event.EventDate,
-			&event.EventLocation,
-			&event.EventLatitude,
-			&event.EventLongitude,
-			&event.EventImage,
-			&event.EventCategory,
-			&event.AttendeeCount,
-			&event.IsFavorite,
-			&event.IsJoin,
+			&ev.EventId,
+			&ev.EventTitle,
+			&ev.EventDate,
+			&ev.EventLocation,
+			&ev.EventLatitude,
+			&ev.EventLongitude,
+			&ev.EventImage,
+			&ev.EventCategory,
+			&ev.AttendeeCount,
+			&ev.IsFavorite,
+			&ev.IsJoin,
 		); err != nil {
 			return nil, err
 		}
 
-		avatars, err := getLastThreeAttendeeAvatars(event.EventId)
+		avatars, err := getLastThreeAttendeeAvatars(ev.EventId)
 		if err != nil {
-			event.AttendeeAvatars = make([]string, 0) // ไม่ให้เป็น nil
+			ev.AttendeeAvatars = make([]string, 0)
 		} else {
-			event.AttendeeAvatars = avatars
+			ev.AttendeeAvatars = avatars
 		}
 
-		events = append(events, event)
+		events = append(events, ev)
 	}
 
 	return events, nil
@@ -181,40 +272,67 @@ func EventGetMediaByID(eid string) (*[]models.Media, *[]models.Media, error) {
 	var mediaImage []models.Media
 	var mediaVideo []models.Media
 
-	if err := database.DB.Where("event_id = ? and file_type = 1", eid).Find(&mediaImage).Error; err != nil {
+	if err := database.DB.Where("event_id = ? and file_type = 1", eid).Preload("User").Find(&mediaImage).Error; err != nil {
 		return nil, nil, err
 	}
 
-	if err := database.DB.Where("event_id = ? and file_type = 2", eid).Find(&mediaVideo).Error; err != nil {
+	if err := database.DB.Where("event_id = ? and file_type = 2", eid).Preload("User").Find(&mediaVideo).Error; err != nil {
 		return nil, nil, err
 	}
 
 	return &mediaImage, &mediaVideo, nil
 }
 
-func EventGetListJoinUser(eid string, currentUserID string) ([]models.User, error) {
-	var users []models.User
+func EventGetListJoinUser(eid string, currentUserID string) ([]response.EventGetListJoin, error) {
+	var queryData []response.EventGetListJoin
+
+	query := `
+		SELECT
+		u.user_id, u.user_image, u.name, u.email, u.phone, j.status,
+		CASE
+			WHEN j.status = -1           THEN 99         -- บล็อก ส่งไปท้ายสุดเสมอ
+			WHEN u.user_id = e.user_id   THEN 1          -- เจ้าของก่อน
+			WHEN u.user_id = ?           THEN 2          -- แล้ว current user
+			ELSE 3
+		END AS priority
+		FROM joins j
+		JOIN user u ON j.user_id = u.user_id
+		JOIN event e ON j.event_id = e.id
+		WHERE j.event_id = ?
+		ORDER BY priority, u.name;
+	`
+
+	if err := database.DB.Raw(query, currentUserID, eid).Scan(&queryData).Error; err != nil {
+		return nil, err
+	}
+
+	return queryData, nil
+}
+
+func EventGetFavorites(uid string) ([]response.EventGetFavorites, error) {
+	var events []response.EventGetFavorites
 
 	err := database.DB.
-		Table("joins").
-		Select("user.*").
-		Joins("JOIN user ON joins.user_id = user.user_id").
-		Joins("JOIN event ON joins.event_id = event.id").
-		Where("joins.event_id = ?", eid).
-		Order(fmt.Sprintf(`
-			CASE 
-				WHEN user.user_id = event.user_id THEN 1
-				WHEN user.user_id = %s THEN 2
-				ELSE 3
-			END
-		`, currentUserID)).
-		Scan(&users).Error
+		Table("event AS e").
+		Select(`
+			e.id, 
+			e.event_name, 
+			e.event_image, 
+			e.type_id, 
+			e.max_media,
+			e.event_start_time,
+			f.favorite_date
+		`).
+		Joins("JOIN favorite AS f ON f.event_id = e.id").
+		Where("f.user_id = ?", uid).
+		Group("e.id").
+		Order("MAX(f.favorite_date) ASC").
+		Scan(&events).Error
 
 	if err != nil {
 		return nil, err
 	}
-
-	return users, nil
+	return events, nil
 }
 
 func EventCheckJoinUser(eid, uid string) (bool, error) {
@@ -268,4 +386,20 @@ func RemoveFavorite(req request.FavoriteReq) (*models.Favorite, error) {
 
 	err = database.DB.Where("event_id = ? AND user_id = ?", eventID, userID).Delete(unfavorite).Error
 	return unfavorite, err
+}
+
+func FindEventBetween(now, next24h time.Time) ([]models.Event, error) {
+	var events []models.Event
+
+	err := database.DB.
+		Model(&models.Event{}).
+		Where("event_start_time BETWEEN ? AND ? AND is_noti_one_day = 0", now, next24h).
+		Order("event_start_time ASC").
+		Find(&events).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return events, nil
 }

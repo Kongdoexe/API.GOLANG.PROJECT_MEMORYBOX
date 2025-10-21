@@ -15,7 +15,7 @@ import "time"
 
 type Notification struct {
 	NotificationID   uint      `gorm:"primaryKey" json:"notification_id"`
-	UserID           uint      `json:"user_id"`
+	UserID           int       `json:"user_id"`
 	EventID          *int      `json:"event_id"`
 	Title            string    `json:"title"`
 	Detail           string    `json:"detail"`

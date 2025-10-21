@@ -41,6 +41,7 @@ type Event struct {
 	EventStatus       int       `json:"event_status"`
 	AccessModifiers   int       `json:"access_modifiers"`
 	EventQrcode       string    `json:"event_qrcode"`
+	IsNotiOneDay      int       `json:"isNoti_One_Day"`
 
 	Notification []Notification `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Media        []Media        `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`

@@ -111,6 +111,23 @@ func UpdateOTPByEmail(resetpass *models.ResetPassToken) error {
 	return database.DB.Save(resetpass).Error
 }
 
-func ChangePass(user *models.User) error {
+func ChangeProfileUser(user *models.User) error {
 	return database.DB.Save(user).Error
+}
+
+func UserUploadImageCover(uid int, imagePath string) (*models.User, error) {
+	var user models.User
+
+	// ค้นหา Event ตาม uid
+	if err := database.DB.First(&user, uid).Error; err != nil {
+		return nil, err
+	}
+
+	user.UserImage = imagePath
+
+	if err := database.DB.Save(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }

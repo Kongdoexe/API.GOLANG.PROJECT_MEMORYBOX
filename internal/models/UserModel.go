@@ -33,3 +33,5 @@ type User struct {
 	Media          []Media        `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Event          []Event        `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
+
+func (User) TableName() string { return "user" }

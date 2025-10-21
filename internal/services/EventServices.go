@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -108,6 +109,20 @@ func EventUploadImageCover(file *multipart.FileHeader, eid string) (string, erro
 	return imageURL, nil
 }
 
+func EventDelete(eid string) (bool, error) {
+	eidInt, err := strconv.Atoi(eid)
+	if err != nil {
+		return false, errors.New("event ID ไม่ถูกต้อง")
+	}
+
+	err = repositories.EventDelete(context.Background(), eidInt)
+	if err != nil {
+		return false, errors.New("ไม่สามารถลบข้อมูลได้")
+	}
+
+	return true, nil
+}
+
 func GetEventMainProfile(uid string) ([]response.EventGetMainProfile, error) {
 	events, err := repositories.GetEventByUID(uid)
 	if err != nil {
@@ -135,9 +150,24 @@ func GetEventMainProfile(uid string) ([]response.EventGetMainProfile, error) {
 }
 
 func GetEventsWithAttendees(uid string) ([]response.GetallEvent, error) {
-	events, err := repositories.GetEventsWithAttendees(uid)
+	events, err := repositories.GetEventsWithAttendees(uid, false, false)
 	if err != nil {
 		return nil, errors.New("ไม่สามารถดึงข้อมูลได้")
+	}
+
+	thaiMonths := map[time.Month]string{
+		time.January:   "มกราคม",
+		time.February:  "กุมภาพันธ์",
+		time.March:     "มีนาคม",
+		time.April:     "เมษายน",
+		time.May:       "พฤษภาคม",
+		time.June:      "มิถุนายน",
+		time.July:      "กรกฎาคม",
+		time.August:    "สิงหาคม",
+		time.September: "กันยายน",
+		time.October:   "ตุลาคม",
+		time.November:  "พฤศจิกายน",
+		time.December:  "ธันวาคม",
 	}
 
 	for i, event := range events {
@@ -145,9 +175,29 @@ func GetEventsWithAttendees(uid string) ([]response.GetallEvent, error) {
 		if err != nil {
 			return nil, fmt.Errorf("ไม่สามารถแปลงวันที่ event_id %d: %v", event.EventId, err)
 		}
+		day := t.Day()
+		month := thaiMonths[t.Month()]
 
-		formattedDate := t.Format("2 January")
+		formattedDate := fmt.Sprintf("%d %s", day, month)
 		events[i].EventDate = formattedDate
+	}
+
+	return events, nil
+}
+
+func GetEventCalendar(uid string) ([]response.GetallEvent, error) {
+	events, err := repositories.GetEventsWithAttendees(uid, true, false)
+	if err != nil {
+		return nil, errors.New("ไม่สามารถดึงข้อมูลได้")
+	}
+
+	return events, nil
+}
+
+func GetEventJoin(uid string) ([]response.GetallEvent, error) {
+	events, err := repositories.GetEventsWithAttendees(uid, false, true)
+	if err != nil {
+		return nil, errors.New("ไม่สามารถดึงข้อมูลได้")
 	}
 
 	return events, nil
@@ -192,17 +242,34 @@ func GetEventDetailWithAttendees(eid int) (*response.DetailEvent, error) {
 	return &response, nil
 }
 
-func EventGetListJoinUser(eid, uid string) (*[]models.User, error) {
-	response, err := repositories.EventGetListJoinUser(eid, uid)
+func EventGetFavorites(uid string) (*[]response.EventGetFavorites, error) {
+	responses, err := repositories.EventGetFavorites(uid)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(response) < 1 {
-		response = make([]models.User, 0)
+	for i := range responses {
+		responses[i].EventDate, _ = formatThaiDateTime(responses[i].EventStartTime.Format(time.RFC3339))
 	}
 
-	return &response, nil
+	if len(responses) < 1 {
+		responses = make([]response.EventGetFavorites, 0)
+	}
+
+	return &responses, nil
+}
+
+func EventGetListJoinUser(eid, uid string) (*[]response.EventGetListJoin, error) {
+	responses, err := repositories.EventGetListJoinUser(eid, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(responses) < 1 {
+		responses = make([]response.EventGetListJoin, 0)
+	}
+
+	return &responses, nil
 }
 
 func EventGetMediaByID(eid string) (*[]models.Media, *[]models.Media, error) {

@@ -3,12 +3,19 @@ package services
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
+	"mime/multipart"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/oklog/ulid/v2"
+
+	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos/request"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/models"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/repositories"
@@ -49,6 +56,14 @@ func sanitizeUserInput(u *models.User) {
 	u.Email = strings.ToLower(strings.TrimSpace(u.Email))
 	u.Phone = strings.TrimSpace(u.Phone)
 	u.Name = strings.TrimSpace(u.Name)
+}
+
+func uniqueULID() string {
+	t := time.Now()
+	seed := t.UnixNano()
+	source := rand.New(rand.NewSource(seed))
+	entropy := ulid.Monotonic(source, uint64(seed))
+	return ulid.MustNew(ulid.Timestamp(t), entropy).String()
 }
 
 func generateOTP() string {
@@ -134,7 +149,7 @@ func Register(req *models.User) (*models.User, error, bool) {
 		}
 
 		if strings.TrimSpace(req.UserImage) == "" {
-			req.UserImage = "http://117.18.125.19/images/profile.png"
+			req.UserImage = "http://117.18.125.19/images/defaultImage/profile.png"
 		}
 		req.IsNotification = 1
 
@@ -261,10 +276,25 @@ func CheckOTP(req request.OTPVerify) error {
 	return nil
 }
 
-func ChangePass(req request.ChangePass) error {
+func GetAllUserInSystem() (*[]models.User, error) {
+	user, err := repositories.UserGetAll()
+	if err != nil {
+		return &[]models.User{}, errors.New("ไม่สามารถดึงข้อมูลได้")
+	}
+
+	return user, nil
+}
+
+func ChangePass(req request.ChangePass, isResetByOTP bool) error {
 	user, err := repositories.UserFindByEmail(req.Email)
 	if err != nil {
 		return errors.New("ไม่พบผู้ใช้")
+	}
+
+	if !isResetByOTP {
+		if !CheckPasswordHash(req.OldPass, user.Password) {
+			return errors.New("รหัสผ่านเดิมไม่ถูกต้อง")
+		}
 	}
 
 	hashedPassword, err := HashPassword(req.Newpass)
@@ -273,10 +303,88 @@ func ChangePass(req request.ChangePass) error {
 	}
 	user.Password = hashedPassword
 
-	err = repositories.ChangePass(user)
+	err = repositories.ChangeProfileUser(user)
 	if err != nil {
 		return errors.New("ไม่สามารถเปลี่ยนรหัสผ่านได้")
 	}
 
 	return nil
+}
+
+func ChangeProfile(req request.ChangeProfile) (*models.User, error) {
+	user, err := repositories.UserFindByEmail(req.Email)
+	if err != nil {
+		return nil, errors.New("ไม่พบผู้ใช้")
+	}
+
+	user.Name = req.Name
+
+	if req.Phone != "" {
+		fmt.Print("ssss")
+		if userPhone, err := repositories.UserFindPhoneNumber(req.Phone); err == nil && userPhone.ID != user.ID {
+			return nil, errors.New("มีผู้ใช้เบอร์นี้แล้ว")
+		}
+	}
+
+	user.Phone = req.Phone
+
+	if req.UserImage != "" {
+		user.UserImage = req.UserImage
+	}
+
+	err = repositories.ChangeProfileUser(user)
+	if err != nil {
+		return nil, errors.New("ไม่สามารถเปลี่ยนรหัสผ่านได้")
+	}
+
+	user, _ = repositories.UserFindByEmail(req.Email)
+	return user, nil
+}
+
+func UserUploadImageCover(file *multipart.FileHeader, uid string) (string, error) {
+	if file.Size > int64(dtos.MaxSize) {
+		return "", errors.New("ไฟล์มีขนาดเกินที่กำหนด (10MB)")
+	}
+
+	userFolder := filepath.Join(dtos.UploadDirUser, fmt.Sprintf("user_%s", uid))
+	if _, err := os.Stat(userFolder); os.IsNotExist(err) {
+		if err := os.MkdirAll(userFolder, os.ModePerm); err != nil {
+			return "", err
+		}
+	}
+
+	filename := uniqueULID() + filepath.Ext(file.Filename)
+	savePath := filepath.Join(userFolder, filename)
+
+	src, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(savePath)
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return "", err
+	}
+
+	// แปลง uid จาก string → int
+	uidInt, err := strconv.Atoi(uid)
+	if err != nil {
+		return "", errors.New("user ID ไม่ถูกต้อง")
+	}
+
+	imageURL := fmt.Sprintf("%s/userImage/user_%s/%s", dtos.BaseURL, uid, filename)
+
+	// ส่งไปอัปเดตในฐานข้อมูล
+	_, err = repositories.UserUploadImageCover(uidInt, imageURL)
+	if err != nil {
+		return "", err
+	}
+
+	return imageURL, nil
 }

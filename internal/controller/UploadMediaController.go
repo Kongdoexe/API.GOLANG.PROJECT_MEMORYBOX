@@ -10,7 +10,9 @@ import (
 
 	"API.GOLANG.PROJECT_MEMORYBOX/database"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos"
+	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos/request"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/models"
+	"API.GOLANG.PROJECT_MEMORYBOX/internal/services"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/rwcarlsen/goexif/exif"
@@ -25,6 +27,7 @@ type ImageResponse struct {
 	UploadAt string `json:"upload_at"`
 }
 
+// เพิ่มรูป / วิดีโอ
 func readExifDateTime(filePath string) (time.Time, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -97,6 +100,18 @@ func UploadMediaAPI(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "UserID ไม่ถูกต้อง",
+		})
+	}
+
+	if err := services.CheckDateEvent(uint(eventID)); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	if err = services.CheckMaxMedia(uint(eventID), uint(userID)); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 
@@ -292,4 +307,90 @@ func IsValidMediaType(contentType string) bool {
 		}
 	}
 	return false
+}
+
+// ลบรูป / วิดีโอ
+func buildDiskPath(eid, uid, subdir, filename string) string {
+	return filepath.Join(
+		dtos.UploadDir,
+		"event_"+eid,
+		"userID_"+uid,
+		subdir,
+		filename,
+	)
+}
+
+func guessSubdirFromURL(url string, fileType int) string {
+	if strings.Contains(url, "/images/") || fileType == 1 {
+		return "images"
+	}
+	if strings.Contains(url, "/videos/") || fileType == 2 {
+		return "videos"
+	}
+	return "others"
+}
+
+func removeIfExists(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		// มีไฟล์ → ลบ
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func DeleteMediaByID(c *fiber.Ctx) error {
+	var req request.DeleteMedia
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	// ตรวจสอบเลข
+	if _, err := strconv.ParseUint(req.Eid, 10, 32); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "EventID ไม่ถูกต้อง"})
+	}
+	if _, err := strconv.ParseUint(req.Uid, 10, 32); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "UserID ไม่ถูกต้อง"})
+	}
+	midUint, err := strconv.ParseUint(req.Mid, 10, 64)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "MediaID ไม่ถูกต้อง"})
+	}
+
+	// อ่านเรคคอร์ดก่อน เพื่อรู้ทั้ง file_url / filetype / filename
+	var media models.Media
+	if err := database.DB.
+		Where("media_id = ? AND event_id = ? AND user_id = ?", midUint, req.Eid, req.Uid).
+		First(&media).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "ไม่พบสื่อในระบบ"})
+	}
+
+	// ดึง filename จาก URL (หลังสุดของ path)
+	parts := strings.Split(media.FileURL, "/")
+	filename := parts[len(parts)-1]
+	subdir := guessSubdirFromURL(media.FileURL, media.FileType)
+	diskPath := buildDiskPath(req.Eid, req.Uid, subdir, filename)
+
+	// ลบไฟล์บนดิสก์
+	if err := removeIfExists(diskPath); err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": fmt.Sprintf("ลบไฟล์ไม่สำเร็จ: %v", err),
+			"path":  diskPath,
+		})
+	}
+
+	// ลบเรคคอร์ด
+	if err := database.DB.Delete(&media).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "ลบเรคคอร์ดในฐานข้อมูลไม่สำเร็จ",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"status":  true,
+		"message": "ลบสื่อสำเร็จ",
+	})
 }

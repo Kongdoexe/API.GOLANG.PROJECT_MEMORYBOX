@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos/request"
+	"API.GOLANG.PROJECT_MEMORYBOX/internal/dtos/response"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/models"
 	"API.GOLANG.PROJECT_MEMORYBOX/internal/repositories"
 )
@@ -33,9 +34,38 @@ func JoinCreate(req *request.JoinRequest) (*models.Join, error) {
 	join.EventID = event.ID
 	join.Status = 1
 
+	if err = SendNotificationEventUserJoin(req.EID, req.UID); err != nil {
+		return nil, errors.New("ไม่สามารถส่งการแจ้งเตือนไปยังผู้ใช้คนอื่นได้")
+	}
+
 	if err = repositories.Joincreate(&join); err != nil {
 		return nil, errors.New("ไม่สามารถสร้างผู้ใช้ได้")
 	}
 
 	return &join, nil
+}
+
+func JoinBlocked(req request.BlockedJoin) (*[]response.EventGetListJoin, error) {
+	_, err := repositories.JoinBlocked(req)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := repositories.EventGetListJoinUser(req.Eid, req.Current)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(res) < 1 {
+		res = make([]response.EventGetListJoin, 0)
+	}
+
+	return &res, nil
+
+}
+
+func CheckBlocked(req request.JoinRequest) (bool, error) {
+	res, _ := repositories.CheckBlocked(req)
+
+	return res, nil
 }

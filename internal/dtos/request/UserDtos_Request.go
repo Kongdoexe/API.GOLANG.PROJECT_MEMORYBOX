@@ -17,10 +17,18 @@ type SendOTP struct {
 
 type ChangePass struct {
 	Email   string `json:"email"`
+	OldPass string `json:"oldpass"`
 	Newpass string `json:"newpass"`
 }
 
 type OTPVerify struct {
 	OTP   string `json:"otp"`
 	Email string `json:"email"`
+}
+
+type ChangeProfile struct {
+	UserImage string `json:"user_image"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Phone     string `json:"phone"`
 }

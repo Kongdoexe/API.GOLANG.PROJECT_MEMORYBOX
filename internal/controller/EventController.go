@@ -89,6 +89,21 @@ func EventCreate(c *fiber.Ctx) error {
 	})
 }
 
+func EventDelete(c *fiber.Ctx) error {
+	eid := c.Params("eid")
+
+	_, err := services.EventDelete(eid)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "ลบอีเวนต์สำเร็จ",
+	})
+}
+
 func GetEventsWithAttendees(c *fiber.Ctx) error {
 	uid := c.Params("uid")
 
@@ -192,6 +207,60 @@ func EventGetListJoinUser(c *fiber.Ctx) error {
 	response, err := services.EventGetListJoinUser(eid, uid)
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "ดึงข้อมูลสำเร็จ",
+		"data":    response,
+	})
+}
+
+func EventGetFavorites(c *fiber.Ctx) error {
+	uid := c.Params("uid")
+
+	if uid == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "ขาด UserID",
+		})
+	}
+
+	response, err := services.EventGetFavorites(uid)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "ดึงข้อมูลเสร็จสิ้น",
+		"data":    response,
+	})
+}
+
+func GetEventCalendar(c *fiber.Ctx) error {
+	uid := c.Params("uid")
+
+	response, err := services.GetEventCalendar(uid)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "ดึงข้อมูลสำเร็จ",
+		"data":    response,
+	})
+}
+
+func GetEventJoin(c *fiber.Ctx) error {
+	uid := c.Params("uid")
+
+	response, err := services.GetEventJoin(uid)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
 			"message": err.Error(),
 		})
 	}

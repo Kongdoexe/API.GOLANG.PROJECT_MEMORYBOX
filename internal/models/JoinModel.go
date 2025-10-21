@@ -10,10 +10,11 @@ package models
 // }
 
 type Join struct {
-	JoinID  uint `gorm:"primaryKey" json:"join_id"`
-	UserID  uint `json:"user_id"`
-	EventID uint `json:"event_id"`
-	Status  int  `json:"status"`
+	JoinID          uint `gorm:"primaryKey" json:"join_id"`
+	UserID          uint `json:"user_id"`
+	EventID         uint `json:"event_id"`
+	Status          int  `json:"status"`
+	AccessModifiers int  `json:"access_modifiers"`
 
 	User  User  `gorm:"foreignKey:UserID;references:ID"`
 	Event Event `gorm:"foreignKey:EventID;references:ID"`
