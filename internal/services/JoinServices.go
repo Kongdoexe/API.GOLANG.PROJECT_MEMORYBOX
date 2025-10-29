@@ -34,10 +34,6 @@ func JoinCreate(req *request.JoinRequest) (*models.Join, error) {
 	join.EventID = event.ID
 	join.Status = 1
 
-	if err = SendNotificationEventUserJoin(req.EID, req.UID); err != nil {
-		return nil, errors.New("ไม่สามารถส่งการแจ้งเตือนไปยังผู้ใช้คนอื่นได้")
-	}
-
 	if err = repositories.Joincreate(&join); err != nil {
 		return nil, errors.New("ไม่สามารถสร้างผู้ใช้ได้")
 	}

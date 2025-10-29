@@ -116,20 +116,21 @@ func Register(req *models.User) (*models.User, error, bool) {
 		return nil, errors.New("คำขอว่างเปล่า"), false
 	}
 
-	if req.Password == "" || !isPasswordStrong(req.Password) {
-		return nil, errors.New("รหัสผ่านต้องยาวอย่างน้อย 8 ตัว และมีตัวพิมพ์ใหญ่/เล็ก/ตัวเลข/อักขระพิเศษ อย่างละอย่างน้อย 1 และห้ามมีช่องว่าง"), false
-	}
-	if req.Email == "" {
-		return nil, errors.New("กรุณากรอกอีเมล"), false
-	}
-
 	isGoogleSignup := req.GoogleID != nil && strings.TrimSpace(*req.GoogleID) != ""
 
-	if _, err := repositories.UserFindByEmail(req.Email); err == nil {
-		return nil, errors.New("มีผู้ใช้อีเมลนี้แล้ว"), false
-	}
-
 	if !isGoogleSignup {
+		if req.Password == "" || !isPasswordStrong(req.Password) {
+			return nil, errors.New("รหัสผ่านต้องยาวอย่างน้อย 8 ตัว และมีตัวพิมพ์ใหญ่/เล็ก/ตัวเลข/อักขระพิเศษ อย่างละอย่างน้อย 1 และห้ามมีช่องว่าง"), false
+		}
+
+		if req.Email == "" {
+			return nil, errors.New("กรุณากรอกอีเมล"), false
+		}
+
+		if _, err := repositories.UserFindByEmail(req.Email); err == nil {
+			return nil, errors.New("มีผู้ใช้อีเมลนี้แล้ว"), false
+		}
+
 		if !gmailOnlyRegex.MatchString(req.Email) {
 			return nil, errors.New("อีเมลต้องเป็น gmail.com เท่านั้น และรูปแบบต้องถูกต้อง"), false
 		}
@@ -172,6 +173,14 @@ func Register(req *models.User) (*models.User, error, bool) {
 
 	req.Password = ""
 	return req, nil, true
+}
+
+func RegisterGoolge(req models.User) (*models.User, error) {
+	if err := repositories.UserCreate(&req); err != nil {
+		return nil, errors.New("ไม่สามารถสร้างผู้ใช้ได้")
+	}
+
+	return &req, nil
 }
 
 func GetUserByID(req string) (*models.User, error) {

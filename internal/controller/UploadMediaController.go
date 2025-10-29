@@ -109,12 +109,6 @@ func UploadMediaAPI(c *fiber.Ctx) error {
 		})
 	}
 
-	if err = services.CheckMaxMedia(uint(eventID), uint(userID)); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
 	form, err := c.MultipartForm()
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{
@@ -142,6 +136,12 @@ func UploadMediaAPI(c *fiber.Ctx) error {
 
 	for i, file := range files {
 		contentType := file.Header.Get("Content-Type")
+
+		if err = services.CheckMaxMedia(uint(eventID), uint(userID)); err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
 
 		if !IsValidMediaType(contentType) {
 			errors = append(errors, fmt.Sprintf("ไฟล์ %d: อนุญาตเฉพาะรูปภาพหรือวิดีโอเท่านั้น", i+1))

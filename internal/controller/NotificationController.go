@@ -107,6 +107,23 @@ func SendNotificationChat(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true})
 }
 
+func SendNotificationJoin(c *fiber.Ctx) error {
+	var req request.RequestSendNotiChat
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	if err := services.SendNotificationEventjoin(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
 func GetUserNotification(c *fiber.Ctx) error {
 	uid := c.Params("uid")
 	if uid == "" {

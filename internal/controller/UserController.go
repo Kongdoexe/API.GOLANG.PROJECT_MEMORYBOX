@@ -60,6 +60,21 @@ func GetUserByEmailAndGoogleID(c *fiber.Ctx) error {
 	})
 }
 
+func RegisterGoolge(c *fiber.Ctx) error {
+	var req models.User
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"message": "ไม่สามารถดำเนินการได้",
+		})
+	}
+
+	user, err := services.RegisterGoolge(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": user})
+}
+
 func Login(c *fiber.Ctx) error {
 	var req request.LoginRequest
 

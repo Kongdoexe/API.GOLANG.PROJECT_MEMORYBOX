@@ -20,6 +20,7 @@ func SetupRouter(app *fiber.App) {
 	auth.Get("/GetUserByID/:uid", controller.GetUserByID)
 	auth.Post("/login", controller.Login)
 	auth.Post("/Register", controller.Register)
+	auth.Post("/RegisterGoogle", controller.RegisterGoolge)
 	auth.Post("/GetUserByEmailAndGoogleID", controller.GetUserByEmailAndGoogleID)
 	auth.Post("/UserUploadImageCover/:uid", controller.UserUploadImageCover)
 
@@ -56,6 +57,7 @@ func SetupRouter(app *fiber.App) {
 	noti.Post("/InsertTok", controller.InsertTokenNotification)
 	noti.Post("/event", controller.SendNotificationEvent)
 	noti.Post("/chat", controller.SendNotificationChat)
+	noti.Post("/join", controller.SendNotificationJoin)
 	noti.Get("/GetUserNotification/:uid", controller.GetUserNotification)
 	noti.Put("/UpdateIsReadNotification/:nid", controller.UpdateIsReadNotification)
 

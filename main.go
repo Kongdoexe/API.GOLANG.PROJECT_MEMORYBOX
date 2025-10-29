@@ -25,7 +25,6 @@ import (
 
 const (
 	uploadDir = "./uploads"
-	maxSize   = 10 * 1024 * 1024
 )
 
 func init() {

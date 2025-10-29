@@ -129,6 +129,41 @@ func GetUserTokenNotificationInEvent24Hr(eventId string) ([]string, error) {
 	return tokens, nil
 }
 
+func CheckNotiUser(userIDs []string, eventID string) (map[string]bool, error) {
+	if len(userIDs) == 0 {
+		return map[string]bool{}, nil
+	}
+
+	result := make(map[string]bool)
+
+	for _, uid := range userIDs {
+		result[uid] = false
+	}
+
+	type NotiUser struct {
+		UserID            string `json:"user_id"`
+		TokenNotification string `json:"token_notification"`
+	}
+
+	var notiUsers []NotiUser
+
+	err := database.DB.
+		Table("notification").
+		Select("user_id, token_notification").
+		Where("user_id IN ? AND event_id = ?", userIDs, eventID).
+		Where("token_notification IS NOT NULL AND token_notification != ''").
+		Find(&notiUsers).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, n := range notiUsers {
+		result[n.UserID] = true
+	}
+
+	return result, nil
+}
+
 func GetTokensByUserIDs(userIDs []string) ([]string, error) {
 	if len(userIDs) == 0 {
 		return []string{}, nil
